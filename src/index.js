@@ -14,6 +14,8 @@ const PORT = process.env.PORT ?? 3001;
 // Allow the Vercel frontend + localhost during development
 const allowedOrigins = [
   process.env.FRONTEND_URL,
+  "https://nana-app-frontend.vercel.app",
+  "https://nana-app-frontend-i28e.vercel.app",
   "http://localhost:5173",
   "http://localhost:4173",
 ].filter(Boolean);
