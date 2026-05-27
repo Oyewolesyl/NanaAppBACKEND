@@ -1,232 +1,256 @@
 # Nana App — Backend
 
-Express + Supabase REST API for the Nana child pain-tracking app.
+Express + Supabase backend API for Nana, a child pain communication and tracking app.
 
----
+## Project Information
 
-## What this backend provides
-
-| Route | What it does |
+| Item | Details |
 |---|---|
-| `POST /api/auth/register` | Create a parent or doctor account |
-| `POST /api/auth/login` | Sign in, get JWT tokens |
-| `POST /api/auth/logout` | Sign out |
-| `GET  /api/auth/me` | Get the signed-in user's profile |
-| `GET  /api/children` | List the parent's children |
-| `POST /api/children` | Add a child (name, age, optional photo) |
-| `GET  /api/children/:id` | Get a single child |
-| `PATCH /api/children/:id` | Update a child |
-| `DELETE /api/children/:id` | Remove a child |
-| `GET  /api/pain-logs?child_id=X` | List pain logs for a child |
-| `POST /api/pain-logs` | Save a body-map session |
-| `GET  /api/pain-logs/:id` | Get a single pain log with zones |
-| `DELETE /api/pain-logs/:id` | Delete a pain log |
-| `POST /api/uploads/child-photo` | Upload a child photo (base64 → Supabase Storage) |
-| `GET  /health` | Health check |
+| Product | Nana |
+| Purpose | Store child profiles, uploaded child images, and pain reports |
+| Backend stack | Node.js, Express, Supabase |
+| Database | Supabase Postgres |
+| Storage | Supabase Storage bucket `child-photos` |
+| Deployment | Render |
+| Production API | https://nanaappbackend.onrender.com |
 
----
+## Setup
 
-## Local development
-
-### 1 · Prerequisites
+### Requirements
 
 - Node.js 18+
-- A free [Supabase](https://supabase.com) project
+- npm
+- Supabase project
+- Supabase service role key
 
-### 2 · Clone and install
+### Install
 
 ```bash
-cd nana-backend
 npm install
 ```
 
-### 3 · Set up environment variables
+### Environment Variables
 
-```bash
-cp .env.example .env
+Create `.env` in the backend root:
+
+```env
+PORT=3001
+FRONTEND_URL=https://nana-app-frontend.vercel.app
+
+SUPABASE_URL=your_supabase_project_url
+SUPABASE_ANON_KEY=your_supabase_anon_key
+SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
 ```
 
-Open `.env` and fill in:
-
-| Variable | Where to find it |
-|---|---|
-| `SUPABASE_URL` | Supabase Dashboard → Project Settings → API → Project URL |
-| `SUPABASE_SERVICE_ROLE_KEY` | Project Settings → API → service_role (secret) |
-| `SUPABASE_ANON_KEY` | Project Settings → API → anon public |
-| `FRONTEND_URL` | Your Vercel deployment URL, e.g. `https://nana-app.vercel.app` |
-| `PORT` | Default `3001` |
-
-### 4 · Run the Supabase migration
-
-1. Open the Supabase Dashboard → **SQL Editor** → **New query**
-2. Paste the contents of `supabase/001_initial_schema.sql`
-3. Click **Run**
-
-This creates the `profiles`, `children`, `pain_logs`, and `pain_zones` tables, sets up Row Level Security policies, and creates the `child-photos` storage bucket.
-
-### 5 · Start the server
+### Run locally
 
 ```bash
 npm run dev
 ```
 
-The server starts at `http://localhost:3001`.
-
-Test it:
+### Run production
 
 ```bash
-curl http://localhost:3001/health
-# → {"status":"ok"}
+npm start
 ```
 
----
+### Health Check
 
-## Deploy to Railway (recommended — free tier available)
-
-Railway auto-detects Node.js and sets `PORT` for you.
-
-1. Push your `nana-backend` folder to a GitHub repo.
-2. Go to [railway.app](https://railway.app) → **New Project** → **Deploy from GitHub repo**.
-3. Select the repo.
-4. Click **Variables** and add all the values from your `.env` file.
-5. Railway builds and deploys automatically. Copy the public URL (e.g. `https://nana-backend.up.railway.app`).
-
-Alternatively, **Render** works identically — create a Web Service, connect your repo, set the env vars, set the start command to `npm start`.
-
----
-
-## Connect the frontend
-
-### Step 1 — Add the API client
-
-Copy `frontend-api-client/api.js` into your front-end `src/` folder.
-
-```
-nana-app-front-end/
-└── src/
-    ├── api.js   ← paste here
-    ├── main.js
-    └── ...
+```http
+GET /health
 ```
 
-### Step 2 — Add an environment variable to Vercel
+Expected response:
 
-In the Vercel dashboard for your front-end project:
-
-1. Go to **Settings** → **Environment Variables**
-2. Add:
-   - **Name:** `VITE_API_URL`
-   - **Value:** your Railway/Render backend URL, e.g. `https://nana-backend.up.railway.app`
-   - **Environment:** Production (and Preview if you want)
-3. Click **Save**, then **Redeploy** your Vercel project.
-
-> During local development, `VITE_API_URL` defaults to `http://localhost:3001` so you don't need to set it.
-
-### Step 3 — Use the API in your screens
-
-**Register + login flow** (wire into `selectRoleScreen.js`):
-
-```js
-import { api } from "../api.js";
-
-// When the user picks a role and taps Continue, show a register form, then:
-const { access_token, user } = await api.auth.login({ email, password });
-// Tokens are stored in localStorage automatically by api.auth.login
+```json
+{ "status": "ok" }
 ```
 
-**Add Child overlay** (wire the Save button in `addChildOverlay.js` or the screens):
+## API Overview
 
-```js
-import { api } from "../api.js";
+Base URL:
 
-// Inside the save-child-button click handler:
-const child = await api.children.create({ name, age: Number(selectedAge) });
-// Then navigate to #child-added
+```text
+https://nanaappbackend.onrender.com
 ```
 
-**Load children on the homepage** (wire into `homepageNewUserScreen.js`):
+## Endpoints
 
-```js
-import { api } from "../api.js";
+### Health
 
-const children = await api.children.list();
-// Render child cards dynamically instead of hardcoding "Sunny" and "Leny"
+| Method | Endpoint | Description |
+|---|---|---|
+| GET | `/health` | Confirms backend is running |
+
+### Authentication
+
+The final assignment says no authentication is required for grading. Nana still includes auth endpoints, but the app also supports a skip/testing flow so graders can access the product.
+
+| Method | Endpoint | Description |
+|---|---|---|
+| POST | `/api/auth/register` | Register user |
+| POST | `/api/auth/login` | Login user |
+| POST | `/api/auth/logout` | Logout user |
+| GET | `/api/auth/me` | Get current user profile |
+
+### Children
+
+| Method | Endpoint | Description |
+|---|---|---|
+| GET | `/api/children` | List children |
+| POST | `/api/children` | Add a child |
+| GET | `/api/children/:id` | Get one child |
+| PATCH | `/api/children/:id` | Update child profile |
+| DELETE | `/api/children/:id` | Delete child profile |
+
+Example child payload:
+
+```json
+{
+  "name": "Sunny",
+  "age": 4,
+  "photo_url": "https://..."
+}
 ```
 
-**Submit body map data** (wire the Continue button in `ShowpainScreen.js`):
+### Uploads
 
-```js
-import { api } from "../api.js";
+| Method | Endpoint | Description |
+|---|---|---|
+| POST | `/api/uploads/child-photo` | Upload child profile image to Supabase Storage |
 
-// Collect the tapped zones from the body map's internal state:
-// zones = [{ zone_id: "head", side: "front", pain_level: 2 }, ...]
+Example upload payload:
 
-await api.painLogs.create({
-  child_id: currentChild.id,
-  zones,
-  // The following are filled in on subsequent screens:
-  pain_type: null,
-  when_did_it_start: null,
-  pain_scale: null,
-});
+```json
+{
+  "data_url": "data:image/png;base64,..."
+}
 ```
 
-**Upload a child photo** (wire the "+ Add image from Gallery" button in `addChildOverlay.js`):
+Example response:
 
-```js
-import { api } from "../api.js";
-
-const fileInput = document.createElement("input");
-fileInput.type = "file";
-fileInput.accept = "image/*";
-fileInput.click();
-fileInput.addEventListener("change", async () => {
-  const file = fileInput.files[0];
-  if (!file) return;
-  const { url } = await api.uploads.childPhoto(file);
-  // Store url, pass it to api.children.create({ ..., photo_url: url })
-});
+```json
+{
+  "url": "https://your-project.supabase.co/storage/v1/object/public/child-photos/example.png"
+}
 ```
 
----
+### Pain Logs
 
-## Database schema (summary)
+| Method | Endpoint | Description |
+|---|---|---|
+| GET | `/api/pain-logs?child_id=...` | List pain logs for a child |
+| POST | `/api/pain-logs` | Save pain report |
+| GET | `/api/pain-logs/:id` | Get one pain report |
+| DELETE | `/api/pain-logs/:id` | Delete pain report |
 
+Example pain log payload:
+
+```json
+{
+  "child_id": "uuid",
+  "pain_type": "sharp",
+  "when_did_it_start": "2026-05-26T10:00:00.000Z",
+  "pain_scale": 8,
+  "notes": "Pain after playing football",
+  "zones": [
+    {
+      "zone_id": "left-knee",
+      "side": "front",
+      "pain_level": 1
+    }
+  ]
+}
 ```
-profiles       id · role · full_name · created_at
-children       id · parent_id · name · age · photo_url · created_at
-pain_logs      id · child_id · parent_id · pain_type · when_did_it_start · pain_scale · notes · created_at
-pain_zones     id · pain_log_id · zone_id · side · pain_level
+
+## Database Schema
+
+Use this schema in Supabase / drawSQL.
+
+### `profiles`
+
+| Column | Type | Notes |
+|---|---|---|
+| id | uuid | Primary key, references auth.users |
+| role | text | parent or doctor |
+| full_name | text | User display name |
+| created_at | timestamptz | Created timestamp |
+
+### `children`
+
+| Column | Type | Notes |
+|---|---|---|
+| id | uuid | Primary key |
+| parent_id | uuid | References profiles.id |
+| name | text | Child name |
+| age | smallint | 1 to 18 |
+| photo_url | text | Public child image URL |
+| created_at | timestamptz | Created timestamp |
+
+### `pain_logs`
+
+| Column | Type | Notes |
+|---|---|---|
+| id | uuid | Primary key |
+| child_id | uuid | References children.id |
+| parent_id | uuid | References profiles.id |
+| pain_type | text | Pain type |
+| when_did_it_start | timestamptz | Start time |
+| pain_scale | smallint | 1 to 10 |
+| notes | text | Optional notes |
+| created_at | timestamptz | Created timestamp |
+
+### `pain_zones`
+
+| Column | Type | Notes |
+|---|---|---|
+| id | uuid | Primary key |
+| pain_log_id | uuid | References pain_logs.id |
+| zone_id | text | Body part identifier |
+| side | text | front or back |
+| pain_level | smallint | selected pain zone level |
+
+## Database Relationship Summary
+
+```text
+auth.users
+   ↓
+profiles
+   ↓
+children
+   ↓
+pain_logs
+   ↓
+pain_zones
 ```
 
-`pain_zones.pain_level` maps to the 5 colour states in `ShowpainScreen.js`:
-- `0` = untouched (grey)
-- `1` = yellow
-- `2` = orange
-- `3` = red
-- `4` = dark red
+## Storage
 
----
+Bucket:
 
-## Project structure
-
+```text
+child-photos
 ```
-nana-backend/
-├── src/
-│   ├── index.js                  Express app entry point
-│   ├── lib/
-│   │   └── supabase.js           Supabase service-role client singleton
-│   ├── middleware/
-│   │   └── auth.js               JWT verification middleware
-│   └── routes/
-│       ├── auth.js               /api/auth/*
-│       ├── children.js           /api/children/*
-│       ├── painLogs.js           /api/pain-logs/*
-│       └── uploads.js            /api/uploads/*
-├── supabase/
-│   └── 001_initial_schema.sql    Run once in Supabase SQL Editor
-├── frontend-api-client/
-│   └── api.js                    Drop this into the front-end src/
-├── .env.example
-└── package.json
+
+Purpose:
+
+```text
+Stores uploaded child profile photos.
 ```
+
+## Submission Checks
+
+Before submitting:
+
+```bash
+git status
+npm install
+npm start
+```
+
+Make sure:
+
+- backend is deployed online
+- `/health` returns `{ "status": "ok" }`
+- README includes API info, setup, endpoints, and database schema
+- main, staging, and develop are synced
