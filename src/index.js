@@ -23,11 +23,18 @@ const allowedOrigins = [
   "http://localhost:4173",
 ].filter(Boolean);
 
+const allowedOriginPatterns = [
+  /^https:\/\/nanabackendmanager(?:-[a-z0-9-]+)?\.vercel\.app$/i,
+];
+
 app.use(
   cors({
     origin: (origin, callback) => {
       if (!origin || origin === "null") return callback(null, true);
       if (allowedOrigins.includes(origin)) return callback(null, true);
+      if (allowedOriginPatterns.some((pattern) => pattern.test(origin))) {
+        return callback(null, true);
+      }
       callback(new Error(`CORS: Origin "${origin}" not allowed.`));
     },
     credentials: true,
