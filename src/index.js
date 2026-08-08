@@ -1,4 +1,4 @@
-// src/index.js — Nana App Backend
+// src/index.js - Nana App Backend
 import "dotenv/config";
 import express from "express";
 import cors from "cors";
@@ -6,14 +6,16 @@ import authRoutes from "./routes/auth.js";
 import childrenRoutes from "./routes/children.js";
 import painLogsRoutes from "./routes/painLogs.js";
 import uploadsRoutes from "./routes/uploads.js";
+import adminRoutes from "./routes/admin.js";
+import assistantRoutes from "./routes/assistant.js";
 
 const app = express();
 const PORT = process.env.PORT ?? 3001;
 
-// ── CORS ──────────────────────────────────────────────────────────────────────
-// Allow the Vercel frontend + localhost during development
+// Allow the Vercel frontend, the private manager, and localhost during development.
 const allowedOrigins = [
   process.env.FRONTEND_URL,
+  process.env.MANAGER_URL,
   "https://nana-app-frontend.vercel.app",
   "https://nana-app-frontend-i28e.vercel.app",
   "http://localhost:5173",
@@ -23,8 +25,7 @@ const allowedOrigins = [
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow requests with no origin (e.g. Postman, curl)
-      if (!origin) return callback(null, true);
+      if (!origin || origin === "null") return callback(null, true);
       if (allowedOrigins.includes(origin)) return callback(null, true);
       callback(new Error(`CORS: Origin "${origin}" not allowed.`));
     },
@@ -32,22 +33,19 @@ app.use(
   })
 );
 
-// ── Body parsing ──────────────────────────────────────────────────────────────
-app.use(express.json({ limit: "10mb" })); // 10 MB for base64 photo uploads
+app.use(express.json({ limit: "10mb" }));
 
-// ── Health check ──────────────────────────────────────────────────────────────
 app.get("/health", (_req, res) => res.json({ status: "ok" }));
 
-// ── Routes ────────────────────────────────────────────────────────────────────
 app.use("/api/auth", authRoutes);
 app.use("/api/children", childrenRoutes);
 app.use("/api/pain-logs", painLogsRoutes);
 app.use("/api/uploads", uploadsRoutes);
+app.use("/api/admin", adminRoutes);
+app.use("/api", assistantRoutes);
 
-// ── 404 catch-all ─────────────────────────────────────────────────────────────
 app.use((_req, res) => res.status(404).json({ error: "Not found." }));
 
-// ── Global error handler ──────────────────────────────────────────────────────
 app.use((err, _req, res, _next) => {
   console.error(err);
   res.status(500).json({ error: err.message ?? "Internal server error." });

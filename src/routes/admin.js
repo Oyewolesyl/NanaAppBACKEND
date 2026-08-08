@@ -1,0 +1,171 @@
+﻿// src/routes/admin.js
+// Small owner-only API used by the Nana backend manager dashboard.
+// Keep these routes token-gated: they use the service-role Supabase client and
+// can read across users for support, QA, and final submission checks.
+
+import { Router } from "express";
+import { supabase } from "../lib/supabase.js";
+import { requireAdmin } from "../middleware/adminAuth.js";
+
+const router = Router();
+router.use(requireAdmin);
+
+const CHILD_SELECT = "id, parent_id, name, age, photo_url, created_at";
+const PAIN_LOG_SELECT = `
+  id,
+  child_id,
+  parent_id,
+  pain_type,
+  when_did_it_start,
+  pain_scale,
+  notes,
+  created_at,
+  children ( id, name, age, photo_url ),
+  pain_zones ( zone_id, side, pain_level )
+`;
+
+function cleanText(value, max = 160) {
+  const text = String(value || "").trim();
+  return text.length > max ? text.slice(0, max) : text;
+}
+
+async function countRows(table) {
+  const { count, error } = await supabase
+    .from(table)
+    .select("id", { count: "exact", head: true });
+
+  if (error) throw error;
+  return count || 0;
+}
+
+router.get("/summary", async (_req, res) => {
+  try {
+    const [profiles, children, painLogs, highPain] = await Promise.all([
+      countRows("profiles"),
+      countRows("children"),
+      countRows("pain_logs"),
+      supabase
+        .from("pain_logs")
+        .select("id", { count: "exact", head: true })
+        .gte("pain_scale", 7),
+    ]);
+
+    if (highPain.error) throw highPain.error;
+
+    res.json({
+      profiles,
+      children,
+      painLogs,
+      highPainLogs: highPain.count || 0,
+      checkedAt: new Date().toISOString(),
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.get("/children", async (req, res) => {
+  try {
+    const search = cleanText(req.query.search, 80).toLowerCase();
+    let query = supabase
+      .from("children")
+      .select(CHILD_SELECT)
+      .order("created_at", { ascending: false });
+
+    if (search) query = query.ilike("name", `%${search}%`);
+
+    const { data, error } = await query.limit(200);
+    if (error) throw error;
+
+    res.json(data || []);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.patch("/children/:id", async (req, res) => {
+  try {
+    const updates = {};
+
+    if (req.body.name !== undefined) {
+      const name = cleanText(req.body.name, 80);
+      if (!name) return res.status(400).json({ error: "Child name cannot be empty." });
+      updates.name = name;
+    }
+
+    if (req.body.age !== undefined) {
+      const age = Number(req.body.age);
+      if (!Number.isInteger(age) || age < 1 || age > 18) {
+        return res.status(400).json({ error: "Age must be a whole number from 1 to 18." });
+      }
+      updates.age = age;
+    }
+
+    if (req.body.photo_url !== undefined) {
+      updates.photo_url = cleanText(req.body.photo_url, 500) || null;
+    }
+
+    if (!Object.keys(updates).length) {
+      return res.status(400).json({ error: "No valid child fields were provided." });
+    }
+
+    const { data, error } = await supabase
+      .from("children")
+      .update(updates)
+      .eq("id", req.params.id)
+      .select(CHILD_SELECT)
+      .single();
+
+    if (error) throw error;
+    res.json(data);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.get("/pain-logs", async (req, res) => {
+  try {
+    const search = cleanText(req.query.search, 80).toLowerCase();
+    const severity = cleanText(req.query.severity, 20);
+
+    let query = supabase
+      .from("pain_logs")
+      .select(PAIN_LOG_SELECT)
+      .order("created_at", { ascending: false })
+      .limit(200);
+
+    if (severity === "high") query = query.gte("pain_scale", 7);
+    if (severity === "medium") query = query.gte("pain_scale", 4).lte("pain_scale", 6);
+    if (severity === "low") query = query.lte("pain_scale", 3);
+
+    const { data, error } = await query;
+    if (error) throw error;
+
+    const rows = (data || []).filter((row) => {
+      if (!search) return true;
+      const haystack = [
+        row.children?.name,
+        row.pain_type,
+        row.notes,
+        row.pain_zones?.map((zone) => zone.zone_id).join(" "),
+      ].join(" ").toLowerCase();
+      return haystack.includes(search);
+    });
+
+    res.json(rows);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.delete("/pain-logs/:id", async (req, res) => {
+  try {
+    const { error } = await supabase.from("pain_logs").delete().eq("id", req.params.id);
+    if (error) throw error;
+    res.status(204).send();
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+export default router;
