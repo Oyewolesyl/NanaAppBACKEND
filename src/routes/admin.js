@@ -10,6 +10,7 @@ import { requireAdmin } from "../middleware/adminAuth.js";
 const router = Router();
 router.use(requireAdmin);
 
+const PROFILE_SELECT = "id, role, full_name, created_at";
 const CHILD_SELECT = "id, parent_id, name, age, photo_url, created_at";
 const PAIN_LOG_SELECT = `
   id,
@@ -36,6 +37,12 @@ function errorPayload(error) {
 function cleanText(value, max = 160) {
   const text = String(value || "").trim();
   return text.length > max ? text.slice(0, max) : text;
+}
+
+function cleanRole(value) {
+  const role = cleanText(value, 40).toLowerCase();
+  if (role === "doctor" || role === "professional") return "doctor";
+  return "parent";
 }
 
 async function countRows(table) {
@@ -92,6 +99,55 @@ router.get("/summary", async (_req, res) => {
   }
 });
 
+router.get("/profiles", async (req, res) => {
+  try {
+    const search = cleanText(req.query.search, 80).toLowerCase();
+    let query = supabase
+      .from("profiles")
+      .select(PROFILE_SELECT)
+      .order("created_at", { ascending: false });
+
+    if (search) query = query.ilike("full_name", `%${search}%`);
+
+    const { data, error } = await query.limit(200);
+    if (error) throw error;
+
+    res.json(data || []);
+  } catch (error) {
+    res.status(500).json({ error: error.message, diagnostics: errorPayload(error) });
+  }
+});
+
+router.patch("/profiles/:id", async (req, res) => {
+  try {
+    const updates = {};
+
+    if (req.body.full_name !== undefined) {
+      updates.full_name = cleanText(req.body.full_name, 120) || null;
+    }
+
+    if (req.body.role !== undefined) {
+      updates.role = cleanRole(req.body.role);
+    }
+
+    if (!Object.keys(updates).length) {
+      return res.status(400).json({ error: "No valid profile fields were provided." });
+    }
+
+    const { data, error } = await supabase
+      .from("profiles")
+      .update(updates)
+      .eq("id", req.params.id)
+      .select(PROFILE_SELECT)
+      .single();
+
+    if (error) throw error;
+    res.json(data);
+  } catch (error) {
+    res.status(500).json({ error: error.message, diagnostics: errorPayload(error) });
+  }
+});
+
 router.get("/children", async (req, res) => {
   try {
     const search = cleanText(req.query.search, 80).toLowerCase();
@@ -106,6 +162,32 @@ router.get("/children", async (req, res) => {
     if (error) throw error;
 
     res.json(data || []);
+  } catch (error) {
+    res.status(500).json({ error: error.message, diagnostics: errorPayload(error) });
+  }
+});
+
+router.post("/children", async (req, res) => {
+  try {
+    const parentId = cleanText(req.body.parent_id, 80);
+    const name = cleanText(req.body.name, 80);
+    const age = Number(req.body.age);
+    const photoUrl = cleanText(req.body.photo_url, 500) || null;
+
+    if (!parentId) return res.status(400).json({ error: "Choose a parent profile first." });
+    if (!name) return res.status(400).json({ error: "Child name cannot be empty." });
+    if (!Number.isInteger(age) || age < 1 || age > 18) {
+      return res.status(400).json({ error: "Age must be a whole number from 1 to 18." });
+    }
+
+    const { data, error } = await supabase
+      .from("children")
+      .insert({ parent_id: parentId, name, age, photo_url: photoUrl })
+      .select(CHILD_SELECT)
+      .single();
+
+    if (error) throw error;
+    res.status(201).json(data);
   } catch (error) {
     res.status(500).json({ error: error.message, diagnostics: errorPayload(error) });
   }
@@ -146,6 +228,16 @@ router.patch("/children/:id", async (req, res) => {
 
     if (error) throw error;
     res.json(data);
+  } catch (error) {
+    res.status(500).json({ error: error.message, diagnostics: errorPayload(error) });
+  }
+});
+
+router.delete("/children/:id", async (req, res) => {
+  try {
+    const { error } = await supabase.from("children").delete().eq("id", req.params.id);
+    if (error) throw error;
+    res.status(204).send();
   } catch (error) {
     res.status(500).json({ error: error.message, diagnostics: errorPayload(error) });
   }
