@@ -16,6 +16,7 @@ const PORT = process.env.PORT ?? 3001;
 const allowedOrigins = [
   process.env.FRONTEND_URL,
   process.env.MANAGER_URL,
+  "https://nanabackendmanager.vercel.app",
   "https://nana-app-frontend.vercel.app",
   "https://nana-app-frontend-i28e.vercel.app",
   "http://localhost:5173",
