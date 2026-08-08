@@ -28,6 +28,22 @@ const VALID_ZONES = new Set([
 ]);
 
 const VALID_PAIN_LEVELS = [0, 1, 2, 3, 4]; // maps to the 5 colour states
+const VALID_PAIN_TYPES = new Set([
+  "sharp",
+  "burning",
+  "throbbing",
+  "tingling",
+  "stabbing",
+  "cramping",
+  "aching",
+  "other",
+  "dull",
+]);
+
+function cleanText(value, max = 160) {
+  const text = String(value || "").trim();
+  return text.length > max ? text.slice(0, max) : text;
+}
 
 // ── List logs for a child ─────────────────────────────────────────────────────
 router.get("/", async (req, res) => {
@@ -73,8 +89,8 @@ router.get("/", async (req, res) => {
 // {
 //   child_id: "uuid",
 //   zones: [{ zone_id: "head", side: "front", pain_level: 2 }, ...],
-//   pain_type: "sharp" | "dull" | "burning" | "throbbing" | "aching" | "stabbing",
-//   when_did_it_start: "2026-05-07T10:00:00Z",   // ISO string
+//   pain_type: "sharp" | "burning" | "throbbing" | "tingling" | "stabbing" | "cramping" | "aching" | "other",
+//   when_did_it_start: "after-play",   // app answer id or ISO string
 //   pain_scale: 3,       // 1–10
 //   notes: "optional free text"
 // }
@@ -116,14 +132,19 @@ router.post("/", async (req, res) => {
     return res.status(400).json({ error: "pain_scale must be a number between 1 and 10." });
   }
 
+  const normalizedPainType = cleanText(pain_type, 40).toLowerCase();
+  if (normalizedPainType && !VALID_PAIN_TYPES.has(normalizedPainType)) {
+    return res.status(400).json({ error: `Invalid pain_type: "${pain_type}"` });
+  }
+
   // Insert the log header
   const { data: log, error: logError } = await supabase
     .from("pain_logs")
     .insert({
       child_id,
       parent_id: req.user.id,
-      pain_type: pain_type ?? null,
-      when_did_it_start: when_did_it_start ?? null,
+      pain_type: normalizedPainType || null,
+      when_did_it_start: cleanText(when_did_it_start, 80) || null,
       pain_scale: pain_scale ?? null,
       notes: notes?.trim() ?? null,
     })

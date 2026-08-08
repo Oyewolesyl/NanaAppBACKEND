@@ -24,6 +24,15 @@ const PAIN_LOG_SELECT = `
   pain_zones ( zone_id, side, pain_level )
 `;
 
+function errorPayload(error) {
+  return {
+    message: error.message || "Unknown backend error.",
+    code: error.code,
+    details: error.details,
+    hint: error.hint,
+  };
+}
+
 function cleanText(value, max = 160) {
   const text = String(value || "").trim();
   return text.length > max ? text.slice(0, max) : text;
@@ -38,29 +47,48 @@ async function countRows(table) {
   return count || 0;
 }
 
+async function safeCountRows(table) {
+  try {
+    return { value: await countRows(table), error: null };
+  } catch (error) {
+    return { value: 0, error: errorPayload(error) };
+  }
+}
+
 router.get("/summary", async (_req, res) => {
   try {
-    const [profiles, children, painLogs, highPain] = await Promise.all([
-      countRows("profiles"),
-      countRows("children"),
-      countRows("pain_logs"),
+    const [profiles, children, painLogs, highPainResult] = await Promise.all([
+      safeCountRows("profiles"),
+      safeCountRows("children"),
+      safeCountRows("pain_logs"),
       supabase
         .from("pain_logs")
         .select("id", { count: "exact", head: true })
-        .gte("pain_scale", 7),
+        .gte("pain_scale", 7)
+        .then(({ count, error }) => ({
+          value: count || 0,
+          error: error ? errorPayload(error) : null,
+        }))
+        .catch((error) => ({ value: 0, error: errorPayload(error) })),
     ]);
 
-    if (highPain.error) throw highPain.error;
+    const diagnostics = {
+      profiles: profiles.error,
+      children: children.error,
+      painLogs: painLogs.error,
+      highPainLogs: highPainResult.error,
+    };
 
     res.json({
-      profiles,
-      children,
-      painLogs,
-      highPainLogs: highPain.count || 0,
+      profiles: profiles.value,
+      children: children.value,
+      painLogs: painLogs.value,
+      highPainLogs: highPainResult.value,
       checkedAt: new Date().toISOString(),
+      diagnostics,
     });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: error.message, diagnostics: errorPayload(error) });
   }
 });
 
@@ -79,7 +107,7 @@ router.get("/children", async (req, res) => {
 
     res.json(data || []);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: error.message, diagnostics: errorPayload(error) });
   }
 });
 
@@ -119,7 +147,7 @@ router.patch("/children/:id", async (req, res) => {
     if (error) throw error;
     res.json(data);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: error.message, diagnostics: errorPayload(error) });
   }
 });
 
@@ -154,7 +182,7 @@ router.get("/pain-logs", async (req, res) => {
 
     res.json(rows);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: error.message, diagnostics: errorPayload(error) });
   }
 });
 
@@ -164,7 +192,7 @@ router.delete("/pain-logs/:id", async (req, res) => {
     if (error) throw error;
     res.status(204).send();
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: error.message, diagnostics: errorPayload(error) });
   }
 });
 

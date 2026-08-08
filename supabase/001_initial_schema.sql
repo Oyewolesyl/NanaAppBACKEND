@@ -62,8 +62,8 @@ create table if not exists public.pain_logs (
   id                  uuid primary key default uuid_generate_v4(),
   child_id            uuid not null references public.children (id) on delete cascade,
   parent_id           uuid not null references public.profiles (id) on delete cascade,
-  pain_type           text check (pain_type in ('sharp','dull','burning','throbbing','aching','stabbing')),
-  when_did_it_start   timestamptz,
+  pain_type           text check (pain_type in ('sharp','burning','throbbing','tingling','stabbing','cramping','aching','other','dull')),
+  when_did_it_start   text,
   pain_scale          smallint check (pain_scale between 1 and 10),
   notes               text,
   created_at          timestamptz not null default now()
