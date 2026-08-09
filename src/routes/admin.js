@@ -11,7 +11,7 @@ const router = Router();
 router.use(requireAdmin);
 
 const PROFILE_SELECT = "id, role, full_name, created_at";
-const CHILD_SELECT = "id, parent_id, name, age, photo_url, created_at";
+const CHILD_SELECT = "id, parent_id, name, age, photo_url, created_at, profiles ( id, full_name, role )";
 const PAIN_LOG_SELECT = `
   id,
   child_id,
