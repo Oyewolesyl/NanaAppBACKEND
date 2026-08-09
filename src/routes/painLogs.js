@@ -25,6 +25,9 @@ const VALID_ZONES = new Set([
   "left-shoulder", "right-shoulder", "back-left-forearm", "back-right-forearm",
   "back-left-hand", "back-right-hand", "left-hamstring", "right-hamstring",
   "left-calf", "right-calf", "left-heel", "right-heel",
+  "tummy", "left-hip", "right-hip", "left-glute", "right-glute",
+  "left-upper-arm", "right-upper-arm", "left-knee", "right-knee",
+  "left-back-knee", "right-back-knee", "left-ankle", "right-ankle",
 ]);
 
 const VALID_PAIN_LEVELS = [0, 1, 2, 3, 4]; // maps to the 5 colour states
@@ -97,8 +100,8 @@ router.get("/", async (req, res) => {
 router.post("/", async (req, res) => {
   const { child_id, zones, pain_type, when_did_it_start, pain_scale, notes } = req.body;
 
-  if (!child_id || !zones || !Array.isArray(zones) || zones.length === 0) {
-    return res.status(400).json({ error: "child_id and at least one zone are required." });
+  if (!child_id || !Array.isArray(zones)) {
+    return res.status(400).json({ error: "child_id and zones array are required." });
   }
 
   // Validate ownership
@@ -128,8 +131,8 @@ router.post("/", async (req, res) => {
     }
   }
 
-  if (pain_scale !== undefined && (typeof pain_scale !== "number" || pain_scale < 1 || pain_scale > 10)) {
-    return res.status(400).json({ error: "pain_scale must be a number between 1 and 10." });
+  if (pain_scale !== undefined && (typeof pain_scale !== "number" || pain_scale < 0 || pain_scale > 10)) {
+    return res.status(400).json({ error: "pain_scale must be a number between 0 and 10." });
   }
 
   const normalizedPainType = cleanText(pain_type, 40).toLowerCase();
@@ -160,6 +163,10 @@ router.post("/", async (req, res) => {
     side: z.side,
     pain_level: z.pain_level,
   }));
+
+  if (!zoneRows.length) {
+    return res.status(201).json({ ...log, pain_zones: [] });
+  }
 
   const { error: zoneError } = await supabase.from("pain_zones").insert(zoneRows);
 
