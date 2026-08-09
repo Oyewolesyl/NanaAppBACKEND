@@ -11,7 +11,7 @@ const router = Router();
 router.use(requireAdmin);
 
 const PROFILE_SELECT = "id, role, full_name, created_at";
-const CHILD_SELECT = "id, parent_id, name, age, photo_url, created_at, profiles ( id, full_name, role )";
+const CHILD_SELECT = "id, parent_id, name, age, photo_url, created_at";
 const PAIN_LOG_SELECT = `
   id,
   child_id,
@@ -60,6 +60,24 @@ async function safeCountRows(table) {
   } catch (error) {
     return { value: 0, error: errorPayload(error) };
   }
+}
+
+async function attachParentProfiles(children = []) {
+  const parentIds = [...new Set(children.map((child) => child.parent_id).filter(Boolean))];
+  if (!parentIds.length) return children;
+
+  const { data: parentProfiles, error } = await supabase
+    .from("profiles")
+    .select("id, full_name, role")
+    .in("id", parentIds);
+
+  if (error) throw error;
+
+  const parentsById = new Map((parentProfiles || []).map((profile) => [profile.id, profile]));
+  return children.map((child) => ({
+    ...child,
+    parent_profile: parentsById.get(child.parent_id) || null,
+  }));
 }
 
 router.get("/summary", async (_req, res) => {
@@ -161,7 +179,7 @@ router.get("/children", async (req, res) => {
     const { data, error } = await query.limit(200);
     if (error) throw error;
 
-    res.json(data || []);
+    res.json(await attachParentProfiles(data || []));
   } catch (error) {
     res.status(500).json({ error: error.message, diagnostics: errorPayload(error) });
   }
@@ -187,7 +205,8 @@ router.post("/children", async (req, res) => {
       .single();
 
     if (error) throw error;
-    res.status(201).json(data);
+    const [child] = await attachParentProfiles([data]);
+    res.status(201).json(child);
   } catch (error) {
     res.status(500).json({ error: error.message, diagnostics: errorPayload(error) });
   }
@@ -227,7 +246,8 @@ router.patch("/children/:id", async (req, res) => {
       .single();
 
     if (error) throw error;
-    res.json(data);
+    const [child] = await attachParentProfiles([data]);
+    res.json(child);
   } catch (error) {
     res.status(500).json({ error: error.message, diagnostics: errorPayload(error) });
   }
