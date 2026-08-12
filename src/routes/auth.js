@@ -1,3 +1,9 @@
+/*
+  handover: auth routes
+  - these routes create and verify real Supabase Auth users.
+  - signup also creates/updates a Nana profile row so the manager can list testers and accounts.
+  - keep validation simple and explicit here; the frontend should not be trusted as the only source of clean input.
+*/
 // src/routes/auth.js
 // POST /api/auth/register  — create a new account (parent or doctor)
 // POST /api/auth/login     — sign in, returns session tokens

@@ -1,4 +1,10 @@
-﻿// src/routes/admin.js
+/*
+  handover: private admin manager routes
+  - these routes are intentionally cross-user so the project owner can manage testers, profiles, children, and reports.
+  - access is protected by ADMIN_MANAGER_TOKEN, not by normal user login. never expose this token in frontend app code.
+  - child/profile linking is handled carefully to avoid Supabase schema-cache relationship errors between children and profiles.
+*/
+// src/routes/admin.js
 // Small owner-only API used by the Nana backend manager dashboard.
 // Keep these routes token-gated: they use the service-role Supabase client and
 // can read across users for support, QA, and final submission checks.

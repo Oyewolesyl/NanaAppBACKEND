@@ -1,3 +1,9 @@
+/*
+  handover: nana assistant routes
+  - this route turns report data into caregiver-friendly decision support: summary, follow-up checks, watch items, and handoff text.
+  - it must not diagnose. keep the language framed as support for caregiver/professional conversations.
+  - if a true LLM provider is added later, keep this same safety boundary and keep deterministic fallback text for outages.
+*/
 // src/routes/assistant.js
 // Server-side Nana Assistant endpoint used by the app chat UI.
 // It gives structured, safety-aware guidance from the report payload without

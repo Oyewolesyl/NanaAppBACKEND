@@ -1,3 +1,9 @@
+/*
+  handover: pain report routes
+  - these routes store the completed body-map report: selected spots, pain type, start time, severity, notes, and follow-up answers.
+  - writes are authenticated and tied to the user's child records. this keeps tester data separated while still allowing the admin manager to review all reports through admin.js.
+  - when the frontend report flow changes, update the accepted payload here and the manager display fields together.
+*/
 // src/routes/painLogs.js
 // Pain log entries — each log captures what the body map screen collects.
 //

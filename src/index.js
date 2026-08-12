@@ -1,3 +1,10 @@
+/*
+  handover: backend entry point
+  - this express app is the single public API for Nana.
+  - normal app requests come from the Vercel frontend and use user auth tokens.
+  - private manager requests come from the backend manager and use ADMIN_MANAGER_TOKEN.
+  - Supabase credentials stay server-side. if browser requests fail, first check CORS env vars: FRONTEND_URL and MANAGER_URL.
+*/
 // src/index.js - Nana App Backend
 import "dotenv/config";
 import express from "express";

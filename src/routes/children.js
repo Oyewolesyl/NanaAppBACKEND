@@ -1,3 +1,9 @@
+/*
+  handover: child profile routes
+  - these routes manage child profiles for the currently authenticated Supabase user.
+  - every read/write is scoped through req.user.id so one caregiver cannot access another caregiver's children.
+  - the admin manager has separate cross-user routes in admin.js; do not weaken these user-facing routes for manager needs.
+*/
 // src/routes/children.js
 // Full CRUD for a parent's children.
 //
