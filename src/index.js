@@ -19,16 +19,24 @@ import assistantRoutes from "./routes/assistant.js";
 const app = express();
 const PORT = process.env.PORT ?? 3001;
 
+function parseOriginList(value) {
+  return String(value || "")
+    .split(",")
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+}
+
 // Allow the Vercel frontend, the private manager, and localhost during development.
+// FRONTEND_URL and MANAGER_URL may each contain one URL or a comma-separated list.
 const allowedOrigins = [
-  process.env.FRONTEND_URL,
-  process.env.MANAGER_URL,
+  ...parseOriginList(process.env.FRONTEND_URL),
+  ...parseOriginList(process.env.MANAGER_URL),
   "https://nanabackendmanager.vercel.app",
   "https://nana-app-frontend.vercel.app",
   "https://nana-app-frontend-i28e.vercel.app",
   "http://localhost:5173",
   "http://localhost:4173",
-].filter(Boolean);
+];
 
 const allowedOriginPatterns = [
   /^https:\/\/nanabackendmanager(?:-[a-z0-9-]+)?\.vercel\.app$/i,
